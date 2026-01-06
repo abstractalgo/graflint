@@ -1,0 +1,3 @@
+[submodule "ocif-spec"]
+	path = ocif-spec
+	url = git@github.com:ocwg/ocif-spec.git
