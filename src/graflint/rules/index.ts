@@ -8,6 +8,7 @@ import { validResourceRefs } from "./structural/valid-resource-refs";
 // Visual rules
 import { nodesAligned } from "./visual/nodes-aligned";
 import { noOverlappingNodes } from "./visual/no-overlapping-nodes";
+import { parentContainsChildren } from "./visual/parent-contains-children";
 
 // Re-export individual rules
 export * from "./structural";
@@ -24,4 +25,5 @@ export const builtinRules: Rule[] = [
   // Visual
   nodesAligned,
   noOverlappingNodes,
+  parentContainsChildren,
 ];

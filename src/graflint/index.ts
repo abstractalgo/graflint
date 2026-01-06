@@ -75,7 +75,11 @@ export {
   uniqueIds,
   validResourceRefs,
 } from "./rules/structural";
-export { nodesAligned, noOverlappingNodes } from "./rules/visual";
+export {
+  nodesAligned,
+  noOverlappingNodes,
+  parentContainsChildren,
+} from "./rules/visual";
 
 // Helper to define rules with type checking
 import type { Rule, NodeRule, RelationRule, ResourceRule, CanvasRule } from "./types/diagnostic";

@@ -12,62 +12,85 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import {
-  check,
-  fix,
-  type Diagnostic,
-  type OCIFDocument,
-} from "./graflint";
+import { check, fix, type Diagnostic, type OCIFDocument } from "./graflint";
 
-// Sample nodes - some are almost aligned, some overlap
+// Sample nodes demonstrating parent-child containment and alignment issues
 const initialNodes: Node[] = [
+  // === Parent-Child Demo (left side) ===
+  // Parent container - children will be outside its bounds
   {
-    id: "node-1",
+    id: "parent-1",
     type: "default",
-    position: { x: 100, y: 100 },
-    data: { label: "Node 1" },
+    position: { x: 50, y: 50 },
+    data: { label: "Parent Container" },
+    style: {
+      width: 200,
+      height: 150,
+      background: "#e0f2fe",
+      border: "2px dashed #0284c7",
+    },
+  },
+  // Child inside parent
+  {
+    id: "child-1",
+    type: "default",
+    position: { x: 70, y: 80 },
+    data: { label: "Child 1 (inside)" },
+    style: { width: 120, height: 40 },
+  },
+  // Child partially outside parent (moved right)
+  {
+    id: "child-2",
+    type: "default",
+    position: { x: 180, y: 130 },
+    data: { label: "Child 2 (outside)" },
+    style: { width: 120, height: 40 },
+  },
+  // Child completely outside parent (below)
+  {
+    id: "child-3",
+    type: "default",
+    position: { x: 80, y: 220 },
+    data: { label: "Child 3 (escaped!)" },
+    style: { width: 120, height: 40 },
+  },
+
+  // === Alignment Demo (right side) ===
+  {
+    id: "align-1",
+    type: "default",
+    position: { x: 400, y: 80 },
+    data: { label: "Aligned Node" },
     style: { width: 150, height: 50 },
   },
   {
-    id: "node-2",
+    id: "align-2",
     type: "default",
-    position: { x: 103, y: 200 }, // Almost aligned with node-1 (3px off)
-    data: { label: "Node 2 (almost aligned)" },
+    position: { x: 403, y: 160 }, // 3px off from align-1
+    data: { label: "Almost aligned (3px)" },
     style: { width: 150, height: 50 },
   },
   {
-    id: "node-3",
+    id: "align-3",
     type: "default",
-    position: { x: 300, y: 100 },
-    data: { label: "Node 3" },
-    style: { width: 150, height: 50 },
-  },
-  {
-    id: "node-4",
-    type: "default",
-    position: { x: 320, y: 120 }, // Overlaps with node-3
-    data: { label: "Node 4 (overlapping)" },
-    style: { width: 150, height: 50 },
-  },
-  {
-    id: "node-5",
-    type: "default",
-    position: { x: 100, y: 350 },
-    data: { label: "Node 5" },
-    style: { width: 150, height: 50 },
-  },
-  {
-    id: "node-6",
-    type: "default",
-    position: { x: 100, y: 352 }, // Almost aligned with node-5 (2px off on Y)
-    data: { label: "Node 6 (almost aligned Y)" },
+    position: { x: 400, y: 240 },
+    data: { label: "Perfectly aligned" },
     style: { width: 150, height: 50 },
   },
 ];
 
 const initialEdges: Edge[] = [
-  { id: "edge-1-2", source: "node-1", target: "node-2" },
-  { id: "edge-3-4", source: "node-3", target: "node-4" },
+  // Parent to children edges (visual only)
+  { id: "edge-p1-c1", source: "parent-1", target: "child-1", animated: true },
+  { id: "edge-p1-c2", source: "parent-1", target: "child-2", animated: true },
+  { id: "edge-p1-c3", source: "parent-1", target: "child-3", animated: true },
+];
+
+// Parent-child relationships for OCIF
+const parentChildRelations = [
+  { parent: "parent-1", child: "child-1" },
+  { parent: "parent-1", child: "child-2" },
+  { parent: "parent-1", child: "child-3" },
 ];
 
 // Convert React Flow nodes to OCIF document
@@ -82,38 +105,70 @@ function nodesToOCIF(nodes: Node[]): OCIFDocument {
         (node.style?.height as number) ?? 50,
       ] as [number, number],
     })),
+    relations: parentChildRelations.map((rel, i) => ({
+      id: `rel-${i}`,
+      data: [
+        {
+          type: "@ocif/rel/parent-child" as const,
+          parent: rel.parent,
+          child: rel.child,
+        },
+      ],
+    })),
   };
 }
 
-// Apply OCIF positions back to React Flow nodes
+// Apply OCIF positions and sizes back to React Flow nodes
 function applyOCIFToNodes(ocifDoc: OCIFDocument, nodes: Node[]): Node[] {
-  const ocifNodesMap = new Map(
-    ocifDoc.nodes?.map((n) => [n.id, n]) ?? []
-  );
+  const ocifNodesMap = new Map(ocifDoc.nodes?.map((n) => [n.id, n]) ?? []);
 
   return nodes.map((node) => {
     const ocifNode = ocifNodesMap.get(node.id);
-    if (ocifNode?.position) {
-      return {
-        ...node,
+    if (!ocifNode) {
+      return node;
+    }
+
+    let updated = node;
+
+    // Apply position changes
+    if (ocifNode.position) {
+      updated = {
+        ...updated,
         position: {
           x: ocifNode.position[0],
           y: ocifNode.position[1],
         },
       };
     }
-    return node;
+
+    // Apply size changes
+    if (ocifNode.size) {
+      updated = {
+        ...updated,
+        style: {
+          ...updated.style,
+          width: ocifNode.size[0],
+          height: ocifNode.size[1],
+        },
+      };
+    }
+
+    return updated;
   });
 }
 
 // Graflint config
 const graflintConfig = {
   rules: {
-    "visual/nodes-aligned": ["warn", { threshold: 5 }] as [
+    // "visual/nodes-aligned": ["warn", { threshold: 5 }] as [
+    //   "warn",
+    //   { threshold: number },
+    // ],
+    // "visual/no-overlapping-nodes": "warn" as const,
+    "visual/parent-contains-children": ["warn", { padding: 10 }] as [
       "warn",
-      { threshold: number },
+      { padding: number },
     ],
-    "visual/no-overlapping-nodes": "warn" as const,
   },
 };
 
