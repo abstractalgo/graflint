@@ -12,7 +12,13 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { check, fix, type Diagnostic, type OCIFDocument } from "./graflint";
+import {
+  check,
+  fix,
+  type Diagnostic,
+  type GraflintConfig,
+  type OCIFDocument,
+} from "./graflint";
 
 // Sample nodes demonstrating parent-child containment and alignment issues
 const initialNodes: Node[] = [
@@ -160,17 +166,11 @@ function applyOCIFToNodes(ocifDoc: OCIFDocument, nodes: Node[]): Node[] {
 // Graflint config
 const graflintConfig = {
   rules: {
-    // "visual/nodes-aligned": ["warn", { threshold: 5 }] as [
-    //   "warn",
-    //   { threshold: number },
-    // ],
-    // "visual/no-overlapping-nodes": "warn" as const,
-    "visual/parent-contains-children": ["warn", { padding: 10 }] as [
-      "warn",
-      { padding: number },
-    ],
+    // "visual/nodes-aligned": ["warn", { threshold: 5 }],
+    // "visual/no-overlapping-nodes": "warn",
+    "visual/parent-contains-children": ["warn", { padding: 10 }],
   },
-};
+} satisfies GraflintConfig;
 
 // Canvas overlay component
 interface LintOverlayProps {
@@ -479,6 +479,21 @@ function Flow() {
     const result = check(ocifDoc, graflintConfig);
     return result.diagnostics;
   }, [nodes]);
+
+  // Auto-fix: continuously apply fixes when diagnostics are detected
+  useEffect(() => {
+    const fixableDiagnostics = diagnostics.filter((d) => d.fix);
+    if (fixableDiagnostics.length === 0) {
+      return;
+    }
+
+    const ocifDoc = nodesToOCIF(nodes);
+    const result = fix(ocifDoc, fixableDiagnostics);
+    if (result.applied.length > 0) {
+      const updatedNodes = applyOCIFToNodes(result.canvas, nodes);
+      setNodes(updatedNodes);
+    }
+  }, [diagnostics, nodes, setNodes]);
 
   // Fix a single diagnostic
   const handleFix = useCallback(
